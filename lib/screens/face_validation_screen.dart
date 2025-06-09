@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:image/image.dart' as img;
+import '../session_storage.dart'; // <-- Import session storage
 
 class FaceValidationScreen extends StatefulWidget {
   const FaceValidationScreen({super.key});
@@ -13,10 +15,9 @@ class FaceValidationScreen extends StatefulWidget {
 class _FaceValidationScreenState extends State<FaceValidationScreen> {
   late CameraController _cameraController;
   bool _isInitialized = false;
-  //String? _storedImagePath;
   String _message = '';
   late String _storedImagePath;
-  late String _firstName = 'User';
+  late String _firstName;
 
   @override
   void initState() {
@@ -37,42 +38,47 @@ class _FaceValidationScreenState extends State<FaceValidationScreen> {
 
   @override
   void didChangeDependencies() {
-   super.didChangeDependencies();
-   final args = ModalRoute.of(context)?.settings.arguments as Map?;
-    if (args != null) {
-     _storedImagePath = args['imagePath'];
-     _firstName = args['firstName'] ?? 'User';
-    }
+    super.didChangeDependencies();
+    _storedImagePath = session.storedImagePath ?? '';
+    _firstName = session.firstName ?? 'User';
   }
-
 
   Future<void> _validateFace() async {
     try {
-      final liveImage = await _cameraController.takePicture();
-      final storedImageFile = File(_storedImagePath);  //_storedImagePath!
-
-      final isLiveFace = await _detectFace(File(liveImage.path));
-      final isStoredFace = await _detectFace(storedImageFile);
-
-      if (isLiveFace && isStoredFace) {
+      if (_storedImagePath.isEmpty) {
         setState(() {
-         _message = 'Hi $_firstName';
+          _message = 'Stored image not found. Please capture face again.';
+        });
+        return;
+      }
+
+      final liveImage = await _cameraController.takePicture();
+      final storedImageFile = File(_storedImagePath);
+      final liveImageFile = File(liveImage.path);
+
+      final isLiveFaceValid = await _detectAndCheckFace(liveImageFile);
+      final isStoredFaceValid = await _detectAndCheckFace(storedImageFile);
+      final isUniformValid = await _isWearingUniform(liveImageFile);
+
+      if (isLiveFaceValid && isStoredFaceValid && isUniformValid) {
+        setState(() {
+          _message = 'Hi $_firstName';
         });
 
-       await Future.delayed(const Duration(seconds: 1));
+        session.storedImagePath = null;
+        session.firstName = null;
+
+        await Future.delayed(const Duration(seconds: 1));
         if (!mounted) return;
 
-         Navigator.pushNamed(
-          context,
-          '/success',
-          arguments: {
-          'firstName': _firstName,
-          },
-          );
-
-      }else {
+        Navigator.pushNamed(context, '/success', arguments: {'firstName': _firstName});
+      } else if (!isUniformValid) {
         setState(() {
-          _message = 'Face mismatch or not detected. Try again.';
+          _message = 'Uniform not detected. Please wear white or blue uniform.';
+        });
+      } else {
+        setState(() {
+          _message = 'Face not clear or mismatch. Ensure no mask/hijab and try again.';
         });
       }
     } catch (e) {
@@ -82,7 +88,7 @@ class _FaceValidationScreenState extends State<FaceValidationScreen> {
     }
   }
 
-  Future<bool> _detectFace(File imageFile) async {
+  Future<bool> _detectAndCheckFace(File imageFile) async {
     final inputImage = InputImage.fromFile(imageFile);
     final faceDetector = FaceDetector(
       options: FaceDetectorOptions(
@@ -93,7 +99,47 @@ class _FaceValidationScreenState extends State<FaceValidationScreen> {
     );
 
     final List<Face> faces = await faceDetector.processImage(inputImage);
-    return faces.isNotEmpty;
+    if (faces.isEmpty) return false;
+
+    final face = faces.first;
+    final landmarks = face.landmarks;
+
+    final nose = landmarks[FaceLandmarkType.noseBase];
+    final leftCheek = landmarks[FaceLandmarkType.leftCheek];
+    final rightCheek = landmarks[FaceLandmarkType.rightCheek];
+
+    return nose != null && leftCheek != null && rightCheek != null;
+  }
+
+  Future<bool> _isWearingUniform(File file) async {
+    final bytes = await file.readAsBytes();
+    final image = img.decodeImage(bytes);
+    if (image == null) return false;
+
+    int whiteCount = 0;
+    int blueCount = 0;
+    int blackCount = 0;
+    int totalCount = 0;
+
+    for (int y = image.height * 2 ~/ 3; y < image.height * 5 ~/ 6; y++) {
+      for (int x = image.width ~/ 3; x < image.width * 2 ~/ 3; x++) {
+        final pixel = image.getPixel(x, y);
+        final r = pixel.r;
+        final g = pixel.g;
+        final b = pixel.b;
+
+        if (r > 200 && g > 200 && b > 200) whiteCount++;
+        if (r < 100 && g < 100 && b > 150) blueCount++;
+        if (r < 50 && g < 50 && b < 50) blackCount++;
+        totalCount++;
+      }
+    }
+
+    final whiteRatio = whiteCount / totalCount;
+    final blueRatio = blueCount / totalCount;
+    final blackRatio = blackCount / totalCount;
+
+    return whiteRatio > 0.4 || blueRatio > 0.4 || blackRatio > 0.4;
   }
 
   @override
@@ -113,12 +159,17 @@ class _FaceValidationScreenState extends State<FaceValidationScreen> {
                   aspectRatio: _cameraController.value.aspectRatio,
                   child: CameraPreview(_cameraController),
                 ),
+                const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _validateFace,
                   child: const Text("Validate Face"),
                 ),
                 const SizedBox(height: 10),
-                Text(_message, style: const TextStyle(color: Colors.green)),
+                Text(
+                  _message,
+                  style: const TextStyle(color: Colors.red, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
               ],
             )
           : const Center(child: CircularProgressIndicator()),

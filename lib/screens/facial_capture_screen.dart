@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
-
+import '../session_storage.dart'; // <-- Import the session storage
 
 class FacialCaptureScreen extends StatefulWidget {
   const FacialCaptureScreen({super.key});
@@ -20,15 +20,14 @@ class _FacialCaptureScreenState extends State<FacialCaptureScreen> {
   String _message = '';
   late String _firstName = 'User';
 
-@override
-void didChangeDependencies() {
-  super.didChangeDependencies();
-  final args = ModalRoute.of(context)?.settings.arguments as Map?;
-  if (args != null && args['firstName'] != null) {
-    _firstName = args['firstName'];
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments as Map?;
+    if (args != null && args['firstName'] != null) {
+      _firstName = args['firstName'];
+    }
   }
-}
-
 
   @override
   void initState() {
@@ -48,40 +47,34 @@ void didChangeDependencies() {
   }
 
   Future<void> _captureAndDetectFace() async {
-  try {
-    final image = await _cameraController.takePicture();
-    final savedImage = await _saveImageLocally(File(image.path));
-    final faceDetected = await _detectFace(savedImage);
+    try {
+      final image = await _cameraController.takePicture();
+      final savedImage = await _saveImageLocally(File(image.path));
+      final faceDetected = await _detectFace(savedImage);
 
-    if (faceDetected) {
+      if (faceDetected) {
+        session.storedImagePath = savedImage.path;
+        session.firstName = _firstName;
+
+        setState(() {
+          _message = "Face detected. Proceeding...";
+        });
+
+        await Future.delayed(const Duration(seconds: 1));
+        if (!mounted) return;
+
+        Navigator.pushNamed(context, '/face_validation');
+      } else {
+        setState(() {
+          _message = "No face detected. Please try again.";
+        });
+      }
+    } catch (e) {
       setState(() {
-        _message = "Face detected. Proceeding...";
-      });
-
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return;
-
-      
-      Navigator.pushNamed(
-       context,
-       '/face_validation',
-       arguments: {
-       'imagePath': savedImage.path,
-       'firstName': _firstName,
-       },
-      );
-
-    } else {
-      setState(() {
-        _message = "No face detected. Please try again.";
+        _message = "Error: ${e.toString()}";
       });
     }
-  } catch (e) {
-    setState(() {
-      _message = "Error: ${e.toString()}";
-    });
   }
-}
 
   Future<File> _saveImageLocally(File image) async {
     final directory = await getApplicationDocumentsDirectory();

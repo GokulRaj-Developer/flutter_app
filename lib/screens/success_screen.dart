@@ -23,7 +23,7 @@ class SuccessScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 30),
-              const SuccessCheckItem(label: "✅ Uniform color: Brown"),
+              const SuccessCheckItem(label: "✅ Uniform Matched"),
               const SuccessCheckItem(label: "✅ Mask removed"),
               const SuccessCheckItem(label: "✅ Religious headwear removed"),
               const SuccessCheckItem(label: "✅ Live face validated"),
