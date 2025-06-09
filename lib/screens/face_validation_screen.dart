@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
-import '../session_storage.dart'; // <-- Import session storage
+import '../session_storage.dart'; 
 
 class FaceValidationScreen extends StatefulWidget {
   const FaceValidationScreen({super.key});

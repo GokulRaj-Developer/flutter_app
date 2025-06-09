@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
-import '../session_storage.dart'; // <-- Import the session storage
+import '../session_storage.dart'; 
 
 class FacialCaptureScreen extends StatefulWidget {
   const FacialCaptureScreen({super.key});

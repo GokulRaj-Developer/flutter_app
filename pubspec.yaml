@@ -30,27 +30,17 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # face_verify: ^0.0.2
   camera: ^0.11.1
   google_mlkit_face_detection: ^0.12.0
   path_provider: ^2.1.2
   path: ^1.9.0
   image_picker: ^1.1.0
   image: ^4.5.4
-  # flutter_facenet: ^0.1.4
-  # camera: ^0.10.5+3
-  # path_provider: ^2.0.14
-  # path: ^1.8.3
-  # google_mlkit_face_detection: ^0.8.0
-
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  face_verify: ^0.0.3
 
-assets:
-  - assets/models/face_net.tflite
 
 
 dev_dependencies:
