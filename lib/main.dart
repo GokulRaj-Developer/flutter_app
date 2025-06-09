@@ -6,16 +6,16 @@ import 'screens/face_validation_screen.dart';
 import 'screens/success_screen.dart';
 
 void main() {
-  runApp(const GistRationApp());
+  runApp(const App());
 }
 
-class GistRationApp extends StatelessWidget {
-  const GistRationApp({super.key});
+class App extends StatelessWidget {
+  const App({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gist Ration App',
+      title: 'App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.brown,
@@ -25,10 +25,11 @@ class GistRationApp extends StatelessWidget {
       routes: {
         '/': (context) => const LoginScreen(),
         '/user_info': (context) => const UserInfoScreen(),
-        '/facial_capture': (context) => const FacialCaptureScreen(),
+        '/facial_capture': (context) => FacialCaptureScreen(),
         '/face_validation': (context) => const FaceValidationScreen(),
         '/success': (context) => const SuccessScreen(),
       },
     );
   }
 }
+

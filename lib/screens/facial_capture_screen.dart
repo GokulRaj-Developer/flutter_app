@@ -17,7 +17,6 @@ class _FacialCaptureScreenState extends State<FacialCaptureScreen> {
   late CameraController _cameraController;
   late List<CameraDescription> _cameras;
   bool _isInitialized = false;
-  //File? _imageFile;
   String _message = '';
   late String _firstName = 'User';
 
@@ -62,12 +61,7 @@ void didChangeDependencies() {
       await Future.delayed(const Duration(seconds: 1));
       if (!mounted) return;
 
-      // Navigate to validation screen with saved image path
-      // Navigator.pushNamed(
-      //   context,
-      //   '/face_validation',
-      //   arguments: savedImage.path,
-      // );
+      
       Navigator.pushNamed(
        context,
        '/face_validation',

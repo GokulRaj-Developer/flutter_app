@@ -14,11 +14,7 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
   DateTime? _dob;
   String? _gender;
 
-  // void _submit() {
-  //   if (_formKey.currentState!.validate()) {
-  //     Navigator.pushNamed(context, '/facial_capture');
-  //   }
-  // }
+
   void _submit() {
   if (_formKey.currentState!.validate()) {
     Navigator.pushNamed(

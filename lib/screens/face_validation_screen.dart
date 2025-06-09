@@ -35,14 +35,6 @@ class _FaceValidationScreenState extends State<FaceValidationScreen> {
     }
   }
 
-  // @override
-  // void didChangeDependencies() {
-  //   super.didChangeDependencies();
-  //   final args = ModalRoute.of(context)?.settings.arguments;
-  //   if (args is String) {
-  //     _storedImagePath = args;
-  //   }
-  // }
   @override
   void didChangeDependencies() {
    super.didChangeDependencies();
@@ -62,16 +54,6 @@ class _FaceValidationScreenState extends State<FaceValidationScreen> {
       final isLiveFace = await _detectFace(File(liveImage.path));
       final isStoredFace = await _detectFace(storedImageFile);
 
-      // if (isLiveFace && isStoredFace) {
-      //   setState(() {
-      //     _message = 'Hi Gokul';
-      //   });
-
-      //   await Future.delayed(const Duration(seconds: 1));
-      //   if (!mounted) return;
-
-      //   Navigator.pushNamed(context, '/success');
-      // } 
       if (isLiveFace && isStoredFace) {
         setState(() {
          _message = 'Hi $_firstName';
