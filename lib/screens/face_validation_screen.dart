@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
-import '../session_storage.dart'; 
+import '../session_storage.dart';
 
 class FaceValidationScreen extends StatefulWidget {
   const FaceValidationScreen({super.key});
@@ -43,52 +43,58 @@ class _FaceValidationScreenState extends State<FaceValidationScreen> {
     _firstName = session.firstName ?? 'User';
   }
 
+
+
   Future<void> _validateFace() async {
-    try {
-      if (_storedImagePath.isEmpty) {
-        setState(() {
-          _message = 'Stored image not found. Please capture face again.';
-        });
-        return;
-      }
-
-      final liveImage = await _cameraController.takePicture();
-      final storedImageFile = File(_storedImagePath);
-      final liveImageFile = File(liveImage.path);
-
-      final isLiveFaceValid = await _detectAndCheckFace(liveImageFile);
-      final isStoredFaceValid = await _detectAndCheckFace(storedImageFile);
-      final isUniformValid = await _isWearingUniform(liveImageFile);
-
-      if (isLiveFaceValid && isStoredFaceValid && isUniformValid) {
-        setState(() {
-          _message = 'Hi $_firstName';
-        });
-
-        session.storedImagePath = null;
-        session.firstName = null;
-
-        await Future.delayed(const Duration(seconds: 1));
-        if (!mounted) return;
-
-        Navigator.pushNamed(context, '/success', arguments: {'firstName': _firstName});
-      } else if (!isUniformValid) {
-        setState(() {
-          _message = 'Uniform not detected. Please wear white or blue uniform.';
-        });
-      } else {
-        setState(() {
-          _message = 'Face not clear or mismatch. Ensure no mask/hijab and try again.';
-        });
-      }
-    } catch (e) {
+  try {
+    if (_storedImagePath.isEmpty) {
       setState(() {
-        _message = 'Error: ${e.toString()}';
+        _message = 'Stored image not found. Please capture face again.';
       });
+      return;
     }
-  }
 
-  Future<bool> _detectAndCheckFace(File imageFile) async {
+    final liveImage = await _cameraController.takePicture();
+    final storedImageFile = File(_storedImagePath);
+    final liveImageFile = File(liveImage.path);
+
+    final isMaskDetected = await _isWearingMaskOrHijab(liveImageFile);
+    final isUniformValid = await _isWearingUniform(liveImageFile);
+    final isFaceMatched = await _compareFaces(storedImageFile, liveImageFile);
+
+    if (isMaskDetected) {
+      setState(() {
+        _message = 'Face covered with mask or hijab. Please remove and try again.';
+      });
+    } else if (!isUniformValid) {
+      setState(() {
+        _message = 'Uniform not detected. Please wear white, black or blue uniform.';
+      });
+    } else if (!isFaceMatched) {
+      setState(() {
+        _message = 'Face does not match stored image. Try again.';
+      });
+    } else {
+      setState(() {
+        _message = 'Hi $_firstName! face matched';
+      });
+
+      session.storedImagePath = null;
+      session.firstName = null;
+
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) return;
+      Navigator.pushNamed(context, '/success', arguments: {'firstName': _firstName});
+    }
+  } catch (e) {
+    setState(() {
+      _message = 'Error: ${e.toString()}';
+    });
+  }
+}
+
+
+  Future<bool> _isWearingMaskOrHijab(File imageFile) async {
     final inputImage = InputImage.fromFile(imageFile);
     final faceDetector = FaceDetector(
       options: FaceDetectorOptions(
@@ -99,7 +105,7 @@ class _FaceValidationScreenState extends State<FaceValidationScreen> {
     );
 
     final List<Face> faces = await faceDetector.processImage(inputImage);
-    if (faces.isEmpty) return false;
+    if (faces.isEmpty) return true; // No face = likely covered
 
     final face = faces.first;
     final landmarks = face.landmarks;
@@ -108,7 +114,8 @@ class _FaceValidationScreenState extends State<FaceValidationScreen> {
     final leftCheek = landmarks[FaceLandmarkType.leftCheek];
     final rightCheek = landmarks[FaceLandmarkType.rightCheek];
 
-    return nose != null && leftCheek != null && rightCheek != null;
+    // If nose or cheeks are missing → face may be covered
+    return nose == null || leftCheek == null || rightCheek == null;
   }
 
   Future<bool> _isWearingUniform(File file) async {
@@ -141,6 +148,76 @@ class _FaceValidationScreenState extends State<FaceValidationScreen> {
 
     return whiteRatio > 0.4 || blueRatio > 0.4 || blackRatio > 0.4;
   }
+
+  Future<bool> _compareFaces(File storedImage, File liveImage) async {
+  final detector = FaceDetector(
+    options: FaceDetectorOptions(
+      performanceMode: FaceDetectorMode.accurate,
+      enableLandmarks: false,
+      enableContours: false,
+    ),
+  );
+
+  final storedInput = InputImage.fromFile(storedImage);
+  final liveInput = InputImage.fromFile(liveImage);
+
+  final storedFaces = await detector.processImage(storedInput);
+  final liveFaces = await detector.processImage(liveInput);
+
+  if (storedFaces.isEmpty || liveFaces.isEmpty) return false;
+
+  // Crop face from images
+  final storedBytes = await storedImage.readAsBytes();
+  final liveBytes = await liveImage.readAsBytes();
+
+  final storedImg = img.decodeImage(storedBytes);
+  final liveImg = img.decodeImage(liveBytes);
+
+  if (storedImg == null || liveImg == null) return false;
+
+  final storedFace = storedFaces.first.boundingBox;
+  final liveFace = liveFaces.first.boundingBox;
+
+
+  final storedCrop = img.copyCrop(
+  storedImg,
+  x: storedFace.left.toInt(),
+  y: storedFace.top.toInt(),
+  width: storedFace.width.toInt(),
+  height: storedFace.height.toInt(),
+);
+
+final liveCrop = img.copyCrop(
+  liveImg,
+  x: liveFace.left.toInt(),
+  y: liveFace.top.toInt(),
+  width: liveFace.width.toInt(),
+  height: liveFace.height.toInt(),
+);
+
+
+  // Resize to same size
+  final storedResized = img.copyResize(storedCrop, width: 100, height: 100);
+  final liveResized = img.copyResize(liveCrop, width: 100, height: 100);
+
+  // Compare using mean squared error
+  double mse = 0;
+  for (int y = 0; y < 100; y++) {
+    for (int x = 0; x < 100; x++) {
+      final p1 = storedResized.getPixel(x, y);
+      final p2 = liveResized.getPixel(x, y);
+      final dr = p1.r - p2.r;
+      final dg = p1.g - p2.g;
+      final db = p1.b - p2.b;
+      mse += (dr * dr + dg * dg + db * db) / 3;
+    }
+  }
+  mse = mse / (100 * 100);
+
+  // Lower MSE = more similar. Tune threshold as needed (e.g., < 1000)
+  return mse < 1000;
+}
+
 
   @override
   void dispose() {
